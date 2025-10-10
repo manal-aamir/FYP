@@ -1,0 +1,10 @@
+{
+  "source": "test.docx",
+  "output": "test__rewritten.txt",
+  "unknown_acronyms": [],
+  "consistency_issues": [],
+  "consistency_suggestions": [],
+  "llm_provider": "none",
+  "llm_model": null,
+  "rewrite_applied": false
+}

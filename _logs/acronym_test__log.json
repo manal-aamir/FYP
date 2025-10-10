@@ -1,0 +1,30 @@
+{
+  "source": "acronym_test.txt",
+  "output": "acronym_test__rewritten.txt",
+  "unknown_acronyms": [],
+  "consistency_issues": [
+    "Potential numeric inconsistency between sections 1 and 2: ['10', '14'] vs ['22']"
+  ],
+  "consistency_suggestions": [
+    "Normalize acronym casing for AI to a single form across sections.",
+    "Normalize acronym casing for DS to a single form across sections.",
+    "Normalize acronym casing for BI to a single form across sections.",
+    "Normalize acronym casing for PO to a single form across sections.",
+    "Normalize acronym casing for SO to a single form across sections.",
+    "Normalize acronym casing for HR to a single form across sections.",
+    "Normalize acronym casing for ROA to a single form across sections.",
+    "Normalize acronym casing for GM to a single form across sections.",
+    "Normalize acronym casing for EV to a single form across sections.",
+    "Normalize acronym casing for CI to a single form across sections.",
+    "Normalize acronym casing for AGX to a single form across sections.",
+    "Normalize acronym casing for EVA to a single form across sections.",
+    "Normalize acronym casing for IR to a single form across sections.",
+    "Normalize acronym casing for MES to a single form across sections.",
+    "Normalize acronym casing for RL to a single form across sections.",
+    "Normalize acronym casing for SOC to a single form across sections.",
+    "Normalize acronym casing for UA to a single form across sections."
+  ],
+  "llm_provider": "none",
+  "llm_model": null,
+  "rewrite_applied": false
+}
