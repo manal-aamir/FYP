@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BizRefine Local Add-in</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="editor">
+            <h2>Document Editor</h2>
+            <textarea id="inputText" placeholder="Write or paste your document here..."></textarea>
+        </div>
+        <div class="sidebar">
+            <h3>BizRefine Tools</h3>
+            <button onclick="processText('expand')">Expand Acronyms</button>
+            
+            <div class="tool-group">
+                <button onclick="showCitationOptions()">Convert Citations</button>
+                <div id="citationOptions" class="options-panel">
+                    <select id="citationStyle">
+                        {% for style in citation_styles %}
+                        <option value="{{ style }}">{{ style|upper }}</option>
+                        {% endfor %}
+                    </select>
+                    <button onclick="processText('citation')">Apply</button>
+                </div>
+            </div>
+            
+            <button onclick="processText('rewrite')">Context-Aware Rewrite</button>
+            <button onclick="processText('consistency')">Cross-Section Consistency Check</button>
+            <button onclick="processText('requirements_consistency')">Requirements Alignment Check</button>
+
+            <div class="tool-group upload-group">
+                <label for="docUpload">Upload DOCX for Requirements Review</label>
+                <input type="file" id="docUpload" accept=".docx">
+                <button onclick="uploadDocument()">Upload & Analyze</button>
+            </div>
+        </div>
+    </div>
+    <div class="output">
+        <h3>Output</h3>
+        <pre id="output"></pre>
+    </div>
+
+<script>
+function getSelectedText() {
+    const textarea = document.getElementById("inputText");
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    return textarea.value.substring(start, end);
+}
+
+function showCitationOptions() {
+    const panel = document.getElementById("citationOptions");
+    panel.classList.toggle("show");
+}
+
+async function processText(action) {
+    const text = document.getElementById("inputText").value;
+    const selectedText = getSelectedText();
+    const output = document.getElementById("output");
+    output.textContent = "Processing...";
+    
+    try {
+        // Prepare request data
+        const requestData = {
+            text: text,
+            action: action,
+            selectedText: selectedText
+        };
+        
+        // Add citation style if applicable
+        if (action === "citation") {
+            requestData.style = document.getElementById("citationStyle").value;
+        }
+        
+        const res = await fetch("/process", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!res.ok) {
+            output.textContent = `Server error: ${res.status} ${res.statusText}`;
+            return;
+        }
+        
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            output.textContent = "Error: Server did not return JSON";
+            return;
+        }
+        
+        const data = await res.json();
+        
+        if (data.error) {
+            output.textContent = data.error;
+            return;
+        }
+        
+        // Update the textarea with the result if there was a selected text
+        const textarea = document.getElementById("inputText");
+
+        if (action === "consistency") {
+            if (data.updated_document) {
+                textarea.value = data.updated_document;
+            }
+
+            if (data.issues && data.issues.length > 0) {
+                const formatted = ["Problems detected:"]
+                    .concat(data.issues.map((item) => `- ${item}`))
+                    .join("\n");
+                output.textContent = formatted;
+            } else {
+                output.textContent = data.result || "No problems detected.";
+            }
+            return;
+        }
+
+        if (selectedText && action !== "requirements_consistency") {
+            document.getElementById("inputText").value = data.result;
+        }
+        
+        // Handle different response formats based on action
+        if (action === "expand") {
+            let resultText = data.result;
+            if (data.unknown_acronyms && data.unknown_acronyms.length > 0) {
+                resultText += "\n\nUnknown acronyms: " + data.unknown_acronyms.join(", ");
+            }
+            output.textContent = resultText;
+        } 
+        else if (action === "citation") {
+            let resultText = data.result;
+            if (data.detected_style) {
+                resultText += "\n\nDetected citation style: " + data.detected_style;
+            }
+            output.textContent = resultText;
+        }
+        else if (action !== "consistency") {
+            output.textContent = data.result;
+        }
+    } catch (error) {
+        output.textContent = "Error processing request: " + error.message;
+    }
+}
+
+async function uploadDocument() {
+    const fileInput = document.getElementById("docUpload");
+    const output = document.getElementById("output");
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+        output.textContent = "Please select a DOCX file.";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+    output.textContent = "Uploading and processing...";
+
+    try {
+        const res = await fetch("/upload", {
+            method: "POST",
+            body: formData
+        });
+
+        if (!res.ok) {
+            output.textContent = `Server error: ${res.status} ${res.statusText}`;
+            return;
+        }
+
+        const data = await res.json();
+        if (data.error) {
+            output.textContent = data.error;
+            return;
+        }
+
+        if (data.markdown) {
+            document.getElementById("inputText").value = data.markdown;
+        }
+
+        output.textContent = data.result;
+    } catch (error) {
+        output.textContent = "Upload failed: " + error.message;
+    } finally {
+        fileInput.value = "";
+    }
+}
+</script>
+</body>
+</html>
