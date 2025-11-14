@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:type="TaskPaneApp">
+
+  <Id>e3b0c442-98fc-4f8a-9b1a-0d9f4f6b6d5a</Id>
+  <Version>1.0.0.2</Version>
+  <ProviderName>BizRefine</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="BizRefine Add-in" />
+  <Description DefaultValue="Analyze and improve your business documents" />
+
+  <!-- Use HTTP for localhost development (macOS Word cannot load self-signed HTTPS) -->
+  <IconUrl DefaultValue="http://127.0.0.1:5001/static/icon-32.png" />
+  <SupportUrl DefaultValue="http://127.0.0.1:5001" />
+
+  <Hosts>
+    <Host Name="Document" />
+  </Hosts>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="http://127.0.0.1:5001/static/taskpane.html" />
+  </DefaultSettings>
+
+  <Permissions>ReadWriteDocument</Permissions>
+</OfficeApp>

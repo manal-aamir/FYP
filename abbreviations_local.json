@@ -251,5 +251,15 @@
   "vlm": "vision language model",
   "wan": "wide area network",
   "xdr": "extended detection and response",
-  "ztna": "zero trust network access"
+  "ztna": "zero trust network access",
+  "aop": "association of persons",
+  "cpu": "central processing unit",
+  "api": "application programming interface",
+  "db": "database",
+  "prd": "product requirements document",
+  "http": "hypertext transfer protocol",
+  "ram": "random access memory",
+  "srs": "software requirements specification",
+  "xqp": "custom protocol",
+  "qfp": "queue federation protocol"
 }

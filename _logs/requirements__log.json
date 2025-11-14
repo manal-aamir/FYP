@@ -1,7 +1,0 @@
-{
-  "source": "requirements.txt",
-  "output": "requirements__rewritten.txt",
-  "unknown_acronyms": [],
-  "consistency_issues": [],
-  "consistency_suggestions": []
-}

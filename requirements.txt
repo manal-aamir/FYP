@@ -1,4 +1,9 @@
-Flask
-python-dotenv
-google-genai
+flask
+flask-cors
+requests
+transformers
+torch
+nltk
 python-docx
+numpy
+python-dotenv

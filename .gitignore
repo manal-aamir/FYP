@@ -1,0 +1,39 @@
+# Python cache and build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.bizrefine/
+venv/
+.venv/
+env/
+.env/
+
+# IDE/editor junk
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# Logs and runtime artifacts
+*.log
+nohup.out
+
+# Model downloads / caches
+.cache/
+*.bin
+*.pt
+*.h5
+*.ckpt
+
+# Office add-in temp files
+~$*.docx
+~$*.xlsx
+

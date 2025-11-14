@@ -1,0 +1,321 @@
+/* Global Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-main: #f3f4f6;
+  --bg-card: #ffffff;
+  --border-color: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-placeholder: #9ca3af;
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  --accent-purple: #8b5cf6;
+  --accent-orange: #f97316;
+  --accent-red: #ef4444;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  padding: 16px;
+  font-size: 14px;
+}
+
+/* Header */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+header .title {
+  padding-left: 4px;
+}
+
+header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+header p {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+#status-badge {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+}
+
+#status-badge.offline {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+#status-badge.online {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+/* Card Sections */
+.card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.card h2 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+/* Section: Current Selection */
+#selection-card textarea {
+  width: 100%;
+  height: 140px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: var(--font-family);
+  font-size: 14px;
+  resize: vertical;
+  color: var(--text-primary);
+}
+
+#selection-card textarea:focus {
+  outline: 2px solid var(--accent-blue);
+  border-color: transparent;
+}
+
+/* Section: Actions */
+.action-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.action-btn {
+  background-color: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-family);
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px 0 rgba(0, 0, 0, 0.07);
+}
+
+.action-btn .icon {
+  font-size: 18px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* Button-specific colors from screenshot */
+#btnExpand { border-color: var(--accent-blue); }
+#btnExpand .icon { color: var(--accent-blue); }
+
+#btnCitation { border-color: var(--accent-green); }
+#btnCitation .icon { color: var(--accent-green); }
+
+#btnRewrite { border-color: var(--accent-purple); }
+#btnRewrite .icon { color: var(--accent-purple); }
+
+#btnConsistency { border-color: var(--accent-orange); }
+#btnConsistency .icon { color: var(--accent-orange); }
+
+.action-btn strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.action-btn p {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.options label {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.options input[type="checkbox"] {
+  margin-right: 8px;
+  height: 16px;
+  width: 16px;
+}
+
+.clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px;
+}
+.clear-btn:hover {
+  color: var(--accent-red);
+}
+
+/* Section: Analysis */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-bottom: -2px;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+}
+
+.tab-content {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.tab-content.hidden {
+  display: none;
+}
+
+/* Output & Loader */
+.placeholder {
+  color: var(--text-placeholder);
+  text-align: center;
+  padding: 24px 0;
+}
+
+.loader {
+  display: none; /* Hidden by default */
+  text-align: center;
+  padding: 24px 0;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+#output h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+#output h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+pre {
+  background: #f9fafb;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+pre.suggestion {
+  background-color: #f0f9ff;
+  border-color: var(--accent-blue);
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.small-btn {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.small-btn:hover {
+  background-color: #f9fafb;
+  border-color: var(--text-secondary);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  font-size: 12px;
+}
+th, td {
+  border: 1px solid var(--border-color);
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background-color: #f9fafb;
+  font-weight: 600;
+}

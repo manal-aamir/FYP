@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BizRefine Add-in</title>
+    
+    <!-- External CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet" />
+    <!-- [FIX] Added /static/ to the path -->
+    <link rel="stylesheet" href="/static/taskpane.css">
+    
+    <!-- Microsoft Office JavaScript API -->
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <header>
+        <div class="title">
+            <h1>BizRefine Add-in</h1>
+            <p>NLP Engine • Word add-in</p>
+        </div>
+        <span id="status-badge" class="offline">offline</span>
+    </header>
+
+    <main>
+        <section class="card" id="selection-card">
+            <h2>Current selection</h2>
+            <textarea id="inputText" placeholder="— (empty selection) —"></textarea>
+        </section>
+
+        <section class="card" id="actions-card">
+            <h2>Actions</h2>
+            <div class="action-buttons">
+                <button class="action-btn" id="btnExpand">
+                    <i class="ri-character-recognition-line icon"></i>
+                    <strong>Expand</strong>
+                    <p>Acronyms &rarr; full form</p>
+                </button>
+                <button class="action-btn" id="btnCitation">
+                    <i class="ri-book-2-line icon"></i>
+                    <strong>Citations</strong>
+                    <p>Detect / format</p>
+                </button>
+                <button class="action-btn" id="btnRewrite">
+                    <i class="ri-pencil-line icon"></i>
+                    <strong>Rewrite</strong>
+                    <p>Structure-aware</p>
+                </button>
+                <button class="action-btn" id="btnConsistency">
+                    <i class="ri-file-search-line icon"></i>
+                    <strong>Consistency</strong>
+                    <p>Terminology, tone</p>
+                </button>
+            </div>
+            <div class="options">
+                <label>
+                    <input type="checkbox" id="replaceCheck" checked>
+                    Replace selection with output
+                </label>
+                <button id="clearBtn" class="clear-btn">Clear</button>
+            </div>
+        </section>
+
+        <section class="card" id="analysis-card">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="summary">Summary</button>
+                <button class="tab-btn" data-tab="json">Raw JSON</button>
+            </div>
+
+            <!-- Summary Tab -->
+            <div class="tab-content" id="summary">
+                <div id="loader" class="loader">Analyzing...</div>
+                <div id="output">
+                    <p class="placeholder">Select an action to see the results here.</p>
+                </div>
+            </div>
+
+            <!-- Raw JSON Tab -->
+            <div class="tab-content hidden" id="json">
+                <pre id="raw-json-output">{ "status": "No analysis run yet." }</pre>
+            </div>
+        </section>
+    </main>
+
+    <!-- External JavaScript -->
+    <script src="/static/taskpane.js" type="text/javascript"></script>
+</body>
+</html>

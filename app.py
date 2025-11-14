@@ -1,257 +1,154 @@
-import json
+# app.py
+# -----------------------------------------------------
+# BizRefine NLP Backend Server (FIXED)
+# -----------------------------------------------------
+# Modules:
+#   • Acronym Expansion (Model-Based)
+#   • Citation Formatter
+#   • Context-Aware Rewriting (Simple)
+#   • Consistency Check (with AI-Powered Fixes)
+# -----------------------------------------------------
+
 import os
-from typing import Optional
 from io import BytesIO
-from flask import Flask, render_template, request, jsonify
-from dotenv import load_dotenv
-from google import genai
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from docx import Document
-from acroynom import expand_acronyms, load_abbreviations
-from citations import detect_citation_style, format_citation
+from dotenv import load_dotenv 
+# ---- Import local modules ----
+# We use "acroynom.py" to match the file I am providing
+from acroynom import load_abbreviations, expand_acronyms
+# from citations import detect_citation_style, format_citation
+from rewrite_model import rewrite_section, rewrite_to_fix_conflicts
+from consistency_model import analyze_cross_section
 
-load_dotenv()
+# ---- Load Environment Variables ----
+load_dotenv() 
+# This will load the GEMINI_API_KEY from your .env file
+# -----------------------------------------------------
+# Flask Setup
+# -----------------------------------------------------
+app = Flask(__name__, static_folder="static", static_url_path="/static")
+CORS(app)
 
-GEMINI_API_KEY = (os.getenv("GEMINI_API_KEY") or "").strip()
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY missing in .env")
-
-app = Flask(__name__)
-
-# Instantiate the modern Google GenAI client once and reuse it.
-MODEL_NAME = "gemini-2.0-flash"
-GEMINI_CLIENT = genai.Client(api_key=GEMINI_API_KEY)
-
-REQUIREMENTS_PATH = os.path.join(os.path.dirname(__file__), "requirements.md")
-
-def load_requirements_text() -> str:
-    if not os.path.exists(REQUIREMENTS_PATH):
-        raise FileNotFoundError(f"requirements.md not found at {REQUIREMENTS_PATH}")
-    with open(REQUIREMENTS_PATH, "r", encoding="utf-8") as file:
-        return file.read()
-
-
-REQUIREMENTS_TEXT = load_requirements_text()
-
-CITATION_STYLES = [
-    "apa", "ieee", "mla", "chicago", "harvard",
-    "inline", "footnote", "hyperlink", "iso", "internal"
-]
-
-def call_gemini(prompt: str) -> str:
-    """Call Gemini via the official google-genai client."""
-    try:
-        response = GEMINI_CLIENT.models.generate_content(
-            model=MODEL_NAME,
-            contents=prompt,
-        )
-    except Exception as exc:
-        return f"[Gemini error] {exc}"
-
-    text = getattr(response, "text", None)
-    if not text:
-        return "[Gemini error] Empty response payload."
-    return text
-
-def context_aware_rewrite(text: str) -> str:
-    prompt = (
-        "Rewrite the following text in a professional, precise style while "
-        "preserving all technical meaning. Return only the revised text.\n\n"
-        f"{text}"
-    )
-    return call_gemini(prompt)
-
-def extract_json(text: str) -> Optional[dict]:
-    """Best-effort attempt to parse JSON returned by the model."""
-    if not text:
-        return None
-    candidate = text.strip()
-    if candidate.startswith("```"):
-        # Handle fenced code blocks by scanning for the first JSON-looking fence payload.
-        parts = candidate.split("```")
-        for part in parts:
-            part = part.strip()
-            if part.startswith("{") and part.endswith("}"):
-                candidate = part
-                break
-    try:
-        return json.loads(candidate)
-    except json.JSONDecodeError:
-        return None
-
-
-def cross_section_consistency_check(document_text: str, focus_section: str = "") -> dict:
-    prompt = (
-        "You are a compliance editor. Compare the author's work against the company "
-        "requirements provided below. Identify every inconsistency in beliefs, tone, "
-        "terminology, data values, or formatting. For the focus section, produce a full "
-        "rewrite that satisfies the requirements while preserving intent.\n\n"
-        "Respond in strict JSON with the keys:\n"
-        "- rewritten_section: string containing the compliant rewrite for the focus "
-        "  section (or the full document if no focus is supplied)\n"
-        "- issues: array of strings, each describing a specific problem found in the "
-        "  current document and how to fix it\n"
-        "Do not include any additional keys or commentary.\n\n"
-    )
-    if focus_section:
-        prompt += f"Focus section:\n{focus_section}\n\n"
-
-    prompt += (
-        f"Company requirements (Markdown):\n{REQUIREMENTS_TEXT}\n\n"
-        f"Author document:\n{document_text}"
-    )
-
-    raw_response = call_gemini(prompt)
-    parsed = extract_json(raw_response)
-
-    if not parsed:
-        # Fall back to returning the original content and treat the model response as an issue.
-        fallback_text = focus_section or document_text
-        return {
-            "rewritten_section": fallback_text,
-            "issues": [raw_response] if raw_response else ["Consistency check failed without explanation."],
-        }
-
-    issues = parsed.get("issues") or []
-    if isinstance(issues, str):
-        issues = [issues]
-    elif not isinstance(issues, list):
-        issues = [json.dumps(issues)]
-
-    rewritten = parsed.get("rewritten_section") or (focus_section or document_text)
-
-    return {
-        "rewritten_section": rewritten,
-        "issues": [issue for issue in issues if isinstance(issue, str) and issue.strip()],
-    }
-
-def requirements_alignment_check(document_markdown: str) -> str:
-    prompt = (
-        "You are a compliance auditor. Compare the provided document against the "
-        "company requirements. Identify:\n"
-        "- areas that satisfy requirements and cite the matching clauses\n"
-        "- gaps or contradictions versus the requirements\n"
-        "- terminology/value mismatches that would break compliance\n"
-        "- concrete edits needed for alignment\n\n"
-        "Conclude with `Overall verdict: PASS` or `Overall verdict: FAIL`.\n\n"
-        f"Company requirements (Markdown):\n{REQUIREMENTS_TEXT}\n\n"
-        f"Candidate document (Markdown):\n{document_markdown}"
-    )
-    return call_gemini(prompt)
-
-def docx_to_markdown(file_storage) -> str:
-    """Convert an uploaded DOCX (werkzeug FileStorage) into a markdown-like string."""
+# -----------------------------------------------------
+# DOCX to text helper
+# -----------------------------------------------------
+def docx_to_text(file_storage) -> str:
+    """Converts a .docx file (from upload) into plain text."""
     try:
         file_bytes = BytesIO(file_storage.read())
         document = Document(file_bytes)
-    except Exception as exc:
-        raise ValueError(f"Unable to read DOCX file: {exc}") from exc
     finally:
+        # Reset stream position for any future reads
         file_storage.stream.seek(0)
+    return "\n\n".join(p.text.strip() for p in document.paragraphs if p.text.strip())
 
-    blocks = []
-    for para in document.paragraphs:
-        text = para.text.strip()
-        if text:
-            blocks.append(text)
-    for table in document.tables:
-        for row in table.rows:
-            cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
-            if cells:
-                blocks.append(" | ".join(cells))
-
-    if not blocks:
-        return ""
-    return "\n\n".join(blocks)
-
+# -----------------------------------------------------
+# Routes
+# -----------------------------------------------------
 @app.route("/")
-def home():
-    return render_template("index.html", citation_styles=CITATION_STYLES)
+def index():
+    # Serves the main HTML user interface
+    return send_from_directory("static", "taskpane.html")
 
 @app.route("/process", methods=["POST"])
 def process():
+    """Main API endpoint to handle all NLP actions."""
     try:
         data = request.json or {}
-        text = data.get("text", "")
         action = data.get("action")
-        selected_text = data.get("selectedText", "")
-        style = data.get("style", "apa")
+        text = data.get("text", "")
+        style = data.get("style", "apa") # For citation formatting
 
-        if not text and not selected_text:
+        if not text:
             return jsonify({"error": "No text provided"}), 400
 
-        segment = selected_text if selected_text else text
-
+        # ---------- Acronym Expansion ----------
         if action == "expand":
-            abbr = load_abbreviations()
-            expanded, unknown = expand_acronyms(segment, abbr)
-            result_text = text.replace(selected_text, expanded) if selected_text else expanded
-            return jsonify({"result": result_text, "unknown_acronyms": unknown})
+            # [FIX] This function only takes one argument
+            expanded, unknown = expand_acronyms(text)
+            return jsonify({"result": expanded, "unknown": unknown})
 
-        if action == "citation":
-            if style not in CITATION_STYLES:
-                style = "apa"
-            detected = detect_citation_style(segment)
-            formatted = format_citation(style, segment)
-            result_text = text.replace(selected_text, formatted) if selected_text else formatted
-            return jsonify({"result": result_text, "detected_style": detected})
+        # ---------- Citation Formatter ----------
+        elif action == "citation":
+            # Placeholder: Implement detect_citation_style and format_citation in citations.py
+            # detected = detect_citation_style(text)
+            # formatted = format_citation(style, text)
+            # return jsonify({"result": formatted, "detected": detected})
+            print("Citation action called, but 'citations.py' is not implemented.")
+            return jsonify({"result": text, "detected": "N/A (Not Implemented)"})
 
-        if action == "rewrite":
-            rewritten = context_aware_rewrite(segment)
-            result_text = text.replace(selected_text, rewritten) if selected_text else rewritten
-            return jsonify({"result": result_text})
+        # ---------- Context-Aware Rewrite ----------
+        elif action == "rewrite":
+            # Calls the simple rewrite function
+            output = rewrite_section(text)
+            return jsonify(output)
 
-        if action == "consistency":
-            review = cross_section_consistency_check(text or segment, selected_text)
-            rewritten = review.get("rewritten_section", segment)
-            issues = review.get("issues", [])
-
-            if selected_text:
-                updated_document = text.replace(selected_text, rewritten, 1)
-            else:
-                updated_document = rewritten
-
-            if issues:
-                issues_report = "Problems detected:\n" + "\n".join(f"- {item}" for item in issues)
-            else:
-                issues_report = "No problems detected; the document aligns with company requirements."
-
+        # ---------- Cross-Section Consistency ----------
+        elif action == "consistency":
+            # This is the new, advanced workflow
+            
+            # 1. Get the analysis from the local consistency model
+            analysis = analyze_cross_section(text)
+            
+            suggested_rewrite = None
+            
+            # 2. Check if the report found any problems
+            if "Inconsistencies detected" in analysis.get("issues_report", ""):
+                # 3. If so, call the Gemini API to suggest a fix
+                print("Inconsistencies found. Calling rewrite model...")
+                suggested_rewrite = rewrite_to_fix_conflicts(
+                    text, 
+                    analysis["issues_report"]
+                )
+            
+            # 4. Return both the analysis AND the suggestion
+            # The 'analysis' dict already contains 'consistency_results' and 'issues_report'
             return jsonify({
-                "result": issues_report,
-                "issues": issues,
-                "rewrite": rewritten,
-                "updated_document": updated_document
+                **analysis,
+                "suggested_rewrite": suggested_rewrite
             })
 
-        if action == "requirements_consistency":
-            analysis = requirements_alignment_check(segment)
-            return jsonify({"result": analysis})
-
-        return jsonify({"error": "Unknown action"}), 400
+        else:
+            return jsonify({"error": f"Unknown action '{action}'"}), 400
 
     except Exception as e:
-        return jsonify({"error": f"Server error: {e}"}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 @app.route("/upload", methods=["POST"])
-def upload_document():
-    try:
-        if "file" not in request.files:
-            return jsonify({"error": "No file part in the request"}), 400
-        file = request.files["file"]
-        if file.filename == "":
-            return jsonify({"error": "No file selected"}), 400
-        if not file.filename.lower().endswith(".docx"):
-            return jsonify({"error": "Unsupported file type. Upload a .docx document."}), 400
+def upload():
+    """Handles .docx file uploads and converts them to text."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    
+    file = request.files["file"]
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
 
-        markdown_text = docx_to_markdown(file)
-        if not markdown_text:
-            return jsonify({"error": "Uploaded document is empty or could not be parsed"}), 400
+    if file and file.filename.endswith('.docx'):
+        text = docx_to_text(file)
+        return jsonify({"text": text})
+    else:
+        return jsonify({"error": "Invalid file type. Please upload a .docx file."}), 400
 
-        analysis = requirements_alignment_check(markdown_text)
-        return jsonify({"result": analysis, "markdown": markdown_text})
-
-    except Exception as exc:
-        return jsonify({"error": f"Upload processing failed: {exc}"}), 500
-
+# -----------------------------------------------------
+# Run
+# -----------------------------------------------------
 if __name__ == "__main__":
-    print("BizRefine Flask (Gemini) on http://127.0.0.1:5001")
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    # [FIX] Use app.run() which is the standard Flask (WSGI) server.
+    # This replaces the Uvicorn (ASGI) server that was causing the TypeError.
+    
+    # Check for 'requests' library, as it's vital for API calls
+    try:
+        import requests
+    except ImportError:
+        print("-------------------------------------------------------")
+        print("ERROR: 'requests' library not found.")
+        print("Please install it to use the model-based features:")
+        print("pip install requests")
+        print("-------------------------------------------------------")
+        
+    app.run(host="127.0.0.1", port=5001, debug=True)

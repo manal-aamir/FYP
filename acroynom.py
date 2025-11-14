@@ -1,84 +1,150 @@
 import json
 import re
-import os
-
+import os       # <-- IMPORT OS
+import requests
+import time
 
 ABBREVIATION_FILE = "abbreviations_local.json"
-INPUT_FILE = "acronym_test.txt"
-OUTPUT_FILE = "acronym_test_extended_expanded.txt"
 
 def load_abbreviations(file_path=ABBREVIATION_FILE) -> dict:
-    """Loads the abbreviation JSON or creates an empty one if not found."""
+    # ... (rest of function is unchanged)
     if not os.path.exists(file_path):
         print(f" No abbreviation file found, creating new one: {file_path}")
         with open(file_path, "w") as f:
             json.dump({}, f)
         return {}
-    with open(file_path, "r") as f:
-        return json.load(f)
+    try:
+        with open(file_path, "r") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        print(f"Warning: Corrupt JSON file at {file_path}. Creating a new one.")
+        with open(file_path, "w") as f:
+            json.dump({}, f)
+        return {}
 
-ABBREVIATIONS = load_abbreviations()
+def save_abbreviations(data: dict, file_path=ABBREVIATION_FILE):
+    # ... (rest of function is unchanged)
+    with open(file_path, "w") as f:
+        json.dump(data, f, indent=2)
 
-def expand_acronyms(text: str, abbreviations: dict = ABBREVIATIONS) -> tuple[str, list[str]]:
-    """
-    Expands acronyms in the given text using the abbreviation dictionary.
-    Returns (expanded_text, list_of_unknown_acronyms).
-    """
-    unknown = set()
-    # Detect likely acronyms (2+ uppercase letters)
-    words = set(re.findall(r"\b[A-Z]{2,}\b", text))
+def get_expansions_from_model(acronyms: list, full_text: str) -> dict:
+    # ... (rest of function is unchanged)
+    print(f"Calling Gemini API to find meanings for: {acronyms}")
+    
+    system_prompt = (
+        "You are an expert-level 'Acronym Disambiguation' tool. "
+        "Your job is to determine the full expansion of an acronym based on its context. "
+        "Analyze the user's text to find the most likely meaning for each acronym provided. "
+        "Respond *only* with a JSON object."
+    )
+    user_prompt = (
+        f"Based on the following document context, what do these acronyms most likely stand for?\n"
+        f"Acronyms to find: {', '.join(acronyms)}\n\n"
+        f"Document Context:\n\"\"\"\n{full_text}\n\"\"\""
+    )
+    json_schema = {
+        "type": "ARRAY",
+        "items": {
+            "type": "OBJECT",
+            "properties": {
+                "acronym": { "type": "STRING" },
+                "expansion": { "type": "STRING" }
+            },
+            "propertyOrdering": ["acronym", "expansion"]
+        }
+    }
+    payload = {
+        "contents": [{ "parts": [{ "text": user_prompt }] }],
+        "systemInstruction": {
+            "parts": [{ "text": system_prompt }]
+        },
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": json_schema
+        }
+    }
+    
+    # [FIX] Read the key from an environment variable
+    apiKey = os.getenv("GEMINI_API_KEY")
+    if not apiKey:
+        print("ERROR: GEMINI_API_KEY environment variable not set.")
+        return {} # Fail fast if key is missing
 
-    for acronym in words:
+    apiUrl = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={apiKey}"
+    
+    # ... (rest of function is unchanged)
+    max_retries = 3
+    delay = 1
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(apiUrl, json=payload, headers={'Content-Type': 'application/json'})
+            
+            if response.status_code == 200:
+                result = response.json()
+                text_part = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '{}')
+                model_expansions = json.loads(text_part) 
+                expansion_dict = {}
+                for item in model_expansions:
+                    if item.get("acronym") and item.get("expansion"):
+                        expansion_dict[item["acronym"].lower()] = item["expansion"].lower()
+                return expansion_dict
+            else:
+                print(f"API Error: Status {response.status_code}, Response: {response.text}")
+                
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(delay)
+                delay *= 2
+            else:
+                return {}
+    return {}
+
+def expand_acronyms(text: str) -> tuple[str, list[str]]:
+    # ... (rest of function is unchanged)
+    abbreviations = load_abbreviations()
+    all_acronyms_in_text = set(re.findall(r"\b[A-Z]{2,}\b", text))
+    unknown_acronyms = [ac for ac in all_acronyms_in_text if ac.lower() not in abbreviations]
+    
+    if unknown_acronyms:
+        model_expansions = get_expansions_from_model(unknown_acronyms, text)
+        if model_expansions:
+            print(f"Model found new expansions: {model_expansions}")
+            abbreviations.update(model_expansions)
+            save_abbreviations(abbreviations)
+        else:
+            print("Model could not find expansions for unknown acronyms.")
+
+    expanded_text = text
+    final_unknown = []
+    
+    for acronym in all_acronyms_in_text:
         key = acronym.lower()
         if key in abbreviations:
             pattern = r"\b" + re.escape(acronym) + r"\b"
-            text = re.sub(
-                pattern,
-                f"{abbreviations[key].title()} ({acronym.upper()})",
-                text,
-                flags=re.IGNORECASE
-            )
+            expansion_text = f"{abbreviations[key].title()} ({acronym.upper()})"
+            expanded_text = re.sub(pattern, expansion_text, expanded_text)
         else:
-            unknown.add(acronym)
+            final_unknown.append(acronym)
 
-    return text, sorted(list(unknown))
-
-def process_file(input_path: str, output_path: str):
-    """Reads text file, expands acronyms, saves expanded version."""
-    if not os.path.exists(input_path):
-        print(f" File not found: {input_path}")
-        return
-
-    with open(input_path, "r") as infile:
-        text = infile.read()
-
-    expanded_text, unknown = expand_acronyms(text)
-
-    with open(output_path, "w") as outfile:
-        outfile.write(expanded_text)
-
-    print(f" Processed file: {input_path}")
-    print(f" Expanded version saved as: {output_path}")
-
-    if unknown:
-        print("\n The following acronyms were not found in your JSON file:")
-        print(", ".join(unknown))
-        print("\n Add them using extend_json('ACRONYM', 'meaning') later.\n")
-    else:
-        print("\n All acronyms were expanded successfully!\n")
-
-def extend_json(acronym: str, meaning: str, file_path=ABBREVIATION_FILE):
-    """Adds a new acronym to the abbreviation JSON file."""
-    with open(file_path, "r+") as f:
-        data = json.load(f)
-        if acronym.lower() not in data:
-            data[acronym.lower()] = meaning.lower()
-            f.seek(0)
-            json.dump(data, f, indent=2)
-            f.truncate()
-            print(f"Added {acronym.upper()} = {meaning}")
-        else:
-            print(f"ℹ {acronym.upper()} already exists.")
+    return expanded_text, sorted(final_unknown)
 
 if __name__ == "__main__":
-    process_file(INPUT_FILE, OUTPUT_FILE)
+    def test_run():
+        save_abbreviations({"kpi": "key performance indicator"})
+        test_text = (
+            "The CEO reviewed the project's KPI. "
+            "The dev team will use NLP to analyze the data. "
+            "This is a test of the ML model."
+        )
+        print("--- Running Model-Based Acronym Expansion ---")
+        expanded, unknown = expand_acronyms(test_text)
+        print("\n--- [Original Text] ---")
+        print(test_text)
+        print("\n--- [Expanded Text] ---")
+        print(expanded)
+        print("\n--- [Still Unknown] ---")
+        print(unknown)
+        print("\n--- [Final Dictionary File] ---")
+        print(json.dumps(load_abbreviations(), indent=2))
+    test_run()
